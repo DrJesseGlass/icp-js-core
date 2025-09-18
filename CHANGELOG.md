@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- fix(identity): Fix 'Uint8Array expected' error in DelegationChain.toJSON() when signature is ArrayBuffer
+
 ## [4.0.4] - 2025-09-18
 
 - fix(agent): create a fresh default polling strategy per request.
