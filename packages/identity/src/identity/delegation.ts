@@ -246,7 +246,7 @@ export class DelegationChain {
               targets: targets.map(t => t.toHex()),
             }),
           },
-          signature: bytesToHex(signature),
+          signature: bytesToHex((signature instanceof Uint8Array ? signature : new Uint8Array(signature))),
         };
       }),
       publicKey: bytesToHex(this.publicKey),

@@ -81,7 +81,7 @@ test('DelegationChain can be serialized to and from JSON', async () => {
   const rootToMiddleJson = JSON.stringify(rootToMiddle);
   // All strings in the JSON should be hex so it is clear how to decode this as different versions
   // of `toJSON` evolve.
-  JSON.parse(rootToMiddleJson, (key, value) => {
+  JSON.parse(rootToMiddleJson, (_key, value) => {
     if (typeof value === 'string') {
       const byte = parseInt(value, 16);
       if (isNaN(byte)) {
@@ -153,5 +153,56 @@ describe('PartialDelegationIdentity', () => {
     await partial.transformRequest().catch(e => {
       expect(e).toContain('Not implemented.');
     });
+  });
+});
+
+describe('DelegationChain serialization bug fix', () => {
+  it('should not throw Uint8Array expected error during serialization', async () => {
+    // Regression test for the bytesToHex serialization bug
+    // This test uses the same pattern as existing tests
+    const root = createIdentity(2);
+    const middle = createIdentity(1);
+
+    const rootToMiddle = await DelegationChain.create(
+      root,
+      middle.getPublicKey(),
+      new Date(1609459200000),
+    );
+
+    // This call would previously fail with "Uint8Array expected"
+    // when signature was ArrayBuffer instead of Uint8Array
+    expect(() => rootToMiddle.toJSON()).not.toThrow();
+
+    // Verify the output format is correct (same as other tests)
+    const json = rootToMiddle.toJSON();
+    expect(json.delegations[0].signature).toMatch(/^[0-9a-f]+$/); // hex string
+    expect(json.publicKey).toMatch(/^[0-9a-f]+$/); // hex string
+
+    // Test round-trip to ensure serialization/deserialization works
+    const restored = DelegationChain.fromJSON(json);
+    expect(restored.toJSON()).toEqual(json);
+  });
+
+  it('should handle JSON roundtrip without Uint8Array errors', async () => {
+    // Additional test for the specific scenario that caused the bug
+    const root = createIdentity(3);
+    const bottom = createIdentity(0);
+
+    const chain = await DelegationChain.create(
+      root,
+      bottom.getPublicKey(),
+      new Date(1609459200000),
+      {
+        targets: [Principal.fromText('jyi7r-7aaaa-aaaab-aaabq-cai')],
+      },
+    );
+
+    // Test the specific serialization path that was failing
+    const jsonString = JSON.stringify(chain);
+    const parsed = JSON.parse(jsonString);
+    const restored = DelegationChain.fromJSON(parsed);
+
+    // This would fail before the fix due to type conversion issues
+    expect(() => restored.toJSON()).not.toThrow();
   });
 });
